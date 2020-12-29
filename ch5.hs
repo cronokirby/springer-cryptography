@@ -7,7 +7,7 @@ import Data.Word (Word8)
 import Ourlude
 
 -- | Represents an alphabetical character, in a way we can easily manipulate.
-data Alpha = Alpha Word8 deriving (Show)
+data Alpha = Alpha Word8 deriving (Eq, Show)
 
 instance Num Alpha where
   Alpha m + Alpha n = Alpha ((m + n) `mod` 26)
@@ -121,3 +121,16 @@ vignereScheme textKey = Scheme {..}
     decryption =
       Decryption <| \k (Ciphertext alphas) ->
         Plaintext (zipWith (-) alphas (cycle k))
+
+indexOfCoincidence :: Ciphertext -> Double
+indexOfCoincidence (Ciphertext alphas) =
+  let pairs = (,) <$> alphas <*> alphas
+      doubleLength = length >>> fromIntegral
+   in doubleLength (filter (uncurry (==)) pairs) / doubleLength pairs
+
+approximateVignereKeyLength :: Ciphertext -> Double
+approximateVignereKeyLength cipher = (ie - ir) / (ic - ir)
+  where
+    ic = indexOfCoincidence cipher
+    ie = 0.0656
+    ir = 0.0385
