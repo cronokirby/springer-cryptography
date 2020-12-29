@@ -7,7 +7,15 @@ import Data.Word (Word8)
 import Ourlude
 
 -- | Represents an alphabetical character, in a way we can easily manipulate.
-data Alpha = Alpha Word8
+data Alpha = Alpha Word8 deriving (Show)
+
+instance Num Alpha where
+  Alpha m + Alpha n = Alpha ((m + n) `mod` 26)
+  Alpha m * Alpha n = Alpha ((m * n) `mod` 26)
+  negate (Alpha m) = Alpha ((26 - m) `mod` 26)
+  fromInteger n = Alpha (fromIntegral (mod (mod n 26 + 26) 26))
+  abs = id
+  signum _ = Alpha 1
 
 alphaFromBase :: Char -> Char -> Maybe Alpha
 alphaFromBase base c =
@@ -43,23 +51,18 @@ newtype Decryption k = Decryption {runDecryption :: k -> Ciphertext -> Plaintext
 --
 -- A scheme provides us with a way of encrypting and decrypting data
 data Scheme k = Scheme
-  { encryption :: Encryption k,
+  { key :: k,
+    encryption :: Encryption k,
     decryption :: Decryption k
   }
 
-emptyScheme :: Scheme ()
-emptyScheme = Scheme {..}
-  where
-    encryption = Encryption (\_ (Plaintext alphas) -> Ciphertext alphas)
-    decryption = Decryption (\_ (Ciphertext alphas) -> Plaintext alphas)
-
-withFormatting :: Bool -> Scheme k -> k -> String -> String
-withFormatting encrypt Scheme {..} k text = output
+withFormatting :: Bool -> Scheme k -> String -> String
+withFormatting encrypt Scheme {..} text = output
   where
     (baseFrom, run) =
       if encrypt
-        then ('a', Plaintext >>> runEncryption encryption k >>> showCiphertext 'A')
-        else ('A', Ciphertext >>> runDecryption decryption k >>> showPlaintext 'a')
+        then ('a', Plaintext >>> runEncryption encryption key >>> showCiphertext 'A')
+        else ('A', Ciphertext >>> runDecryption decryption key >>> showPlaintext 'a')
 
     converted = map (alphaFromBase baseFrom) text
     runs = getRuns (zip text (map isJust converted))
@@ -89,8 +92,21 @@ withFormatting encrypt Scheme {..} k text = output
               st = (xs, acc)
            in Just (produced, st)
 
-formattedEncrypt :: Scheme k -> k -> String -> String
-formattedEncrypt = withFormatting True
+enc :: Scheme k -> String -> String
+enc = withFormatting True
 
-formattedDecrypt :: Scheme k -> k -> String -> String
-formattedDecrypt = withFormatting False
+dec :: Scheme k -> String -> String
+dec = withFormatting False
+
+emptyScheme :: Scheme ()
+emptyScheme = Scheme {..}
+  where
+    key = ()
+    encryption = Encryption (\_ (Plaintext alphas) -> Ciphertext alphas)
+    decryption = Decryption (\_ (Ciphertext alphas) -> Plaintext alphas)
+
+caesarScheme :: Alpha -> Scheme Alpha
+caesarScheme key = Scheme {..}
+  where
+    encryption = Encryption (\k (Plaintext alphas) -> Ciphertext (map (+ k) alphas))
+    decryption = Decryption (\k (Ciphertext alphas) -> Plaintext (map (\x -> x - k) alphas))
