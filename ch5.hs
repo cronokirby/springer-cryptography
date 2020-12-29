@@ -120,4 +120,4 @@ vignereScheme textKey = Scheme {..}
         Ciphertext (zipWith (+) (cycle k) alphas)
     decryption =
       Decryption <| \k (Ciphertext alphas) ->
-        Plaintext (zipWith (+) (cycle k) alphas)
+        Plaintext (zipWith (-) alphas (cycle k))
