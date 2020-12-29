@@ -1,13 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Data.Char (chr, ord)
-import Data.List (unfoldr)
+import Data.List (sort, unfoldr)
 import Data.Maybe (catMaybes, isJust)
 import Data.Word (Word8)
 import Ourlude
 
 -- | Represents an alphabetical character, in a way we can easily manipulate.
-data Alpha = Alpha Word8 deriving (Eq, Show)
+data Alpha = Alpha Word8 deriving (Eq, Ord, Show)
 
 instance Num Alpha where
   Alpha m + Alpha n = Alpha ((m + n) `mod` 26)
@@ -122,15 +122,23 @@ vignereScheme textKey = Scheme {..}
       Decryption <| \k (Ciphertext alphas) ->
         Plaintext (zipWith (-) alphas (cycle k))
 
-indexOfCoincidence :: Ciphertext -> Double
-indexOfCoincidence (Ciphertext alphas) =
-  let pairs = (,) <$> alphas <*> alphas
+indexOfCoincidence :: Int -> Ciphertext -> Double
+indexOfCoincidence n (Ciphertext alphas) =
+  let alphas' = alphas |> zip [0 ..] |> filter (fst >>> (`mod` n) >>> (== 0)) |> map snd
+      pairs = (,) <$> alphas' <*> alphas'
       doubleLength = length >>> fromIntegral
    in doubleLength (filter (uncurry (==)) pairs) / doubleLength pairs
 
 approximateVignereKeyLength :: Ciphertext -> Double
 approximateVignereKeyLength cipher = (ie - ir) / (ic - ir)
   where
-    ic = indexOfCoincidence cipher
+    ic = indexOfCoincidence 1 cipher
     ie = 0.0656
     ir = 0.0385
+
+frequencies :: Int -> Int -> Ciphertext -> [(Int, Alpha)]
+frequencies keyLength target (Ciphertext cipher) =
+  let cipher' = cipher |> zip [0 ..] |> filter (fst >>> (`mod` keyLength) >>> (== target)) |> map snd
+      count alpha = cipher' |> filter (== alpha) |> length
+      alphas = [0 .. 25] |> map Alpha
+   in sort [(count a, a) | a <- alphas]
