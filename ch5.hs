@@ -110,3 +110,14 @@ caesarScheme key = Scheme {..}
   where
     encryption = Encryption (\k (Plaintext alphas) -> Ciphertext (map (+ k) alphas))
     decryption = Decryption (\k (Ciphertext alphas) -> Plaintext (map (\x -> x - k) alphas))
+
+vignereScheme :: String -> Scheme [Alpha]
+vignereScheme textKey = Scheme {..}
+  where
+    key = textKey |> map (alphaFromBase 'A') |> catMaybes
+    encryption =
+      Encryption <| \k (Plaintext alphas) ->
+        Ciphertext (zipWith (+) (cycle k) alphas)
+    decryption =
+      Decryption <| \k (Ciphertext alphas) ->
+        Plaintext (zipWith (+) (cycle k) alphas)
